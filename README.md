@@ -241,6 +241,22 @@ Debug endpoints are available at `/debug/*` when enabled (requires `DEBUG_ROUTES
 - `GET /debug/logs?id=<process_id>` - Get logs for a specific process
 - `GET /debug/version` - Get container and moltbot version info
 
+## Optional: Venice AI Provider
+
+To use Venice AI's Llama 3.3 70B model instead of Anthropic:
+
+```bash
+npx wrangler secret put VENICE_API_KEY
+# Enter your Venice API key (format: vapi_xxxxxxxxxxxx)
+npm run deploy
+```
+
+Get your API key from [venice.ai](https://venice.ai) under **Settings → API Keys**.
+
+**Note:** Venice offers privacy-focused AI with no logging on private models. When `VENICE_API_KEY` is set, Llama 3.3 70B becomes the default model.
+
+**⚠️ Important:** If you also configure `AI_GATEWAY_BASE_URL`, the AI Gateway will override Venice as the default model (Venice will still be available for manual selection, but won't be the automatic default).
+
 ## Optional: Chat Channels
 
 ### Telegram
@@ -353,7 +369,12 @@ npx wrangler secret put AI_GATEWAY_BASE_URL
 npm run deploy
 ```
 
-The `AI_GATEWAY_*` variables take precedence over `ANTHROPIC_*` if both are set.
+**Provider Precedence**: When multiple providers are configured, the default model precedence is:
+1. `AI_GATEWAY_*` (highest priority - security/routing layer takes precedence)
+2. `VENICE_API_KEY` (direct provider)
+3. `ANTHROPIC_API_KEY` (default fallback)
+
+**Note:** All configured providers remain available for manual model selection; precedence only determines the automatic default model. If `AI_GATEWAY_BASE_URL` is configured, you'll see a warning in logs when Venice's default is overridden.
 
 ## All Secrets Reference
 
@@ -364,6 +385,7 @@ The `AI_GATEWAY_*` variables take precedence over `ANTHROPIC_*` if both are set.
 | `ANTHROPIC_API_KEY` | Yes* | Direct Anthropic API key (fallback if AI Gateway not configured) |
 | `ANTHROPIC_BASE_URL` | No | Direct Anthropic API base URL (fallback) |
 | `OPENAI_API_KEY` | No | OpenAI API key (alternative provider) |
+| `VENICE_API_KEY` | No | Venice AI API key (format: vapi_xxxxxxxxxxxx) - privacy-focused alternative provider |
 | `CF_ACCESS_TEAM_DOMAIN` | Yes* | Cloudflare Access team domain (required for admin UI) |
 | `CF_ACCESS_AUD` | Yes* | Cloudflare Access application audience (required for admin UI) |
 | `MOLTBOT_GATEWAY_TOKEN` | Yes | Gateway token for authentication (pass via `?token=` query param) |

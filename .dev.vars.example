@@ -3,6 +3,9 @@
 
 ANTHROPIC_API_KEY=sk-ant-...
 
+# Optional - Venice AI provider (privacy-focused alternative)
+# VENICE_API_KEY=vapi_...
+
 # Local development mode - skips Cloudflare Access auth and bypasses device pairing
 # DEV_MODE=true
 

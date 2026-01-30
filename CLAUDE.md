@@ -185,11 +185,16 @@ npm run start
 See `src/types.ts` for the full `MoltbotEnv` interface.
 
 **Required (production):**
-- `ANTHROPIC_API_KEY` or (`AI_GATEWAY_API_KEY` + `AI_GATEWAY_BASE_URL`)
+- `ANTHROPIC_API_KEY` or (`AI_GATEWAY_API_KEY` + `AI_GATEWAY_BASE_URL`) or `VENICE_API_KEY`
 - `MOLTBOT_GATEWAY_TOKEN` - Gateway access token
 - `CF_ACCESS_TEAM_DOMAIN` + `CF_ACCESS_AUD` - Cloudflare Access JWT validation
 
+**Provider Precedence** (default model selection): `AI_GATEWAY_*` (highest - security/routing layer) → `VENICE_API_KEY` → `ANTHROPIC_API_KEY` (fallback)
+
+**Note:** When both AI Gateway and Venice are configured, startup logs will show a warning that Venice's default is being overridden. All providers remain available for manual selection.
+
 **Optional:**
+- `VENICE_API_KEY` - Venice AI API key for Llama 3.3 70B (privacy-focused alternative provider)
 - `DEV_MODE=true` - Local dev only (skips auth + pairing)
 - `DEBUG_ROUTES=true` - Enables /debug/* routes
 - `SANDBOX_SLEEP_AFTER` - Container sleep timeout (`never` or `10m`, `1h`, etc.)

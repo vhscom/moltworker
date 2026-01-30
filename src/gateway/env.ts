@@ -28,6 +28,9 @@ export function buildEnvVars(env: MoltbotEnv): Record<string, string> {
   if (!envVars.OPENAI_API_KEY && env.OPENAI_API_KEY) {
     envVars.OPENAI_API_KEY = env.OPENAI_API_KEY;
   }
+  if (env.VENICE_API_KEY) {
+    envVars.VENICE_API_KEY = env.VENICE_API_KEY;
+  }
 
   // Pass base URL (used by start-moltbot.sh to determine provider)
   if (env.AI_GATEWAY_BASE_URL) {

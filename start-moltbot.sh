@@ -208,6 +208,25 @@ if (process.env.SLACK_BOT_TOKEN && process.env.SLACK_APP_TOKEN) {
     config.channels.slack.enabled = true;
 }
 
+// Venice AI provider configuration
+if (process.env.VENICE_API_KEY) {
+    console.log('Configuring Venice AI provider with Llama 3.3 70B');
+    config.models = config.models || {};
+    config.models.providers = config.models.providers || {};
+    config.models.providers.venice = {
+        baseUrl: 'https://api.venice.ai/api/v1',
+        apiKey: process.env.VENICE_API_KEY,
+        api: 'openai-completions',
+        models: [
+            { id: 'llama-3.3-70b', name: 'Llama 3.3 70B', contextWindow: 131072, maxTokens: 8192 }
+        ]
+    };
+    // Add model to the allowlist so it appears in /models
+    config.agents.defaults.models = config.agents.defaults.models || {};
+    config.agents.defaults.models['venice/llama-3.3-70b'] = { alias: 'Llama 3.3 70B' };
+    config.agents.defaults.model.primary = 'venice/llama-3.3-70b';
+}
+
 // Base URL override (e.g., for Cloudflare AI Gateway)
 // Usage: Set AI_GATEWAY_BASE_URL or ANTHROPIC_BASE_URL to your endpoint like:
 //   https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/anthropic
@@ -219,6 +238,9 @@ if (isOpenAI) {
     // Create custom openai provider config with baseUrl override
     // Omit apiKey so moltbot falls back to OPENAI_API_KEY env var
     console.log('Configuring OpenAI provider with base URL:', baseUrl);
+    if (process.env.VENICE_API_KEY) {
+        console.log('WARNING: AI Gateway configuration will override Venice as the default model');
+    }
     config.models = config.models || {};
     config.models.providers = config.models.providers || {};
     config.models.providers.openai = {
@@ -238,6 +260,9 @@ if (isOpenAI) {
     config.agents.defaults.model.primary = 'openai/gpt-5.2';
 } else if (baseUrl) {
     console.log('Configuring Anthropic provider with base URL:', baseUrl);
+    if (process.env.VENICE_API_KEY) {
+        console.log('WARNING: AI Gateway configuration will override Venice as the default model');
+    }
     config.models = config.models || {};
     config.models.providers = config.models.providers || {};
     const providerConfig = {
