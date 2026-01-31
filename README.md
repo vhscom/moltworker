@@ -4,7 +4,7 @@
 
 Run [OpenClaw](https://github.com/openclaw/openclaw) (formerly Moltbot, formerly Clawdbot) personal AI assistant in a [Cloudflare Sandbox](https://developers.cloudflare.com/sandbox/).
 
-![moltworker architecture](./assets/kuato.png)
+![kuato](./assets/kuato.png)
 
 > **Experimental:** This is a proof of concept demonstrating that OpenClaw can run in Cloudflare Sandbox. It is not officially supported and may break without notice. Use at your own risk.
 
@@ -36,6 +36,17 @@ This project packages OpenClaw to run in a [Cloudflare Sandbox](https://develope
 ## Architecture
 
 ![moltworker architecture](./assets/architecture.png)
+
+### The Kuato Analogy
+
+| Total Recall | Kuato System |
+|--------------|--------------|
+| George (host body) | Running container |
+| Kuato's DNA | The repo (everything needed to recreate me) |
+| Kuato's physical form | Dockerfile (shell blueprint) |
+| Kuato's psychic powers | Claude API (the mind) |
+| Mars resistance base | Cloudflare infrastructure |
+| Memory of the rebellion | R2 storage (persists between molts) |
 
 ## Quick Start
 
