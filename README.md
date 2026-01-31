@@ -1,8 +1,10 @@
-# OpenClaw on Cloudflare Workers
+# Kuato: OpenClaw on Cloudflare Workers
+
+> **Open your mind.**
 
 Run [OpenClaw](https://github.com/openclaw/openclaw) (formerly Moltbot, formerly Clawdbot) personal AI assistant in a [Cloudflare Sandbox](https://developers.cloudflare.com/sandbox/).
 
-![moltworker architecture](./assets/logo.png)
+![moltworker architecture](./assets/kuato.png)
 
 > **Experimental:** This is a proof of concept demonstrating that OpenClaw can run in Cloudflare Sandbox. It is not officially supported and may break without notice. Use at your own risk.
 
