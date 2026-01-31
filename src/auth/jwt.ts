@@ -1,5 +1,5 @@
-import { jwtVerify, createRemoteJWKSet, type JWTPayload as JoseJWTPayload } from 'jose';
-import type { JWTPayload } from '../types';
+import { createRemoteJWKSet, jwtVerify } from "jose";
+import type { JWTPayload } from "../types";
 
 /**
  * Verify a Cloudflare Access JWT token using the jose library.
@@ -14,24 +14,24 @@ import type { JWTPayload } from '../types';
  * @throws Error if the token is invalid, expired, or doesn't match expected values
  */
 export async function verifyAccessJWT(
-  token: string,
-  teamDomain: string,
-  expectedAud: string
+	token: string,
+	teamDomain: string,
+	expectedAud: string,
 ): Promise<JWTPayload> {
-  // Ensure teamDomain has https:// prefix for issuer check
-  const issuer = teamDomain.startsWith('https://')
-    ? teamDomain
-    : `https://${teamDomain}`;
+	// Ensure teamDomain has https:// prefix for issuer check
+	const issuer = teamDomain.startsWith("https://")
+		? teamDomain
+		: `https://${teamDomain}`;
 
-  // Create JWKS from the team domain
-  const JWKS = createRemoteJWKSet(new URL(`${issuer}/cdn-cgi/access/certs`));
+	// Create JWKS from the team domain
+	const JWKS = createRemoteJWKSet(new URL(`${issuer}/cdn-cgi/access/certs`));
 
-  // Verify the JWT using jose
-  const { payload } = await jwtVerify(token, JWKS, {
-    issuer,
-    audience: expectedAud,
-  });
+	// Verify the JWT using jose
+	const { payload } = await jwtVerify(token, JWKS, {
+		issuer,
+		audience: expectedAud,
+	});
 
-  // Cast to our JWTPayload type
-  return payload as unknown as JWTPayload;
+	// Cast to our JWTPayload type
+	return payload as unknown as JWTPayload;
 }
