@@ -37,6 +37,17 @@ This project packages OpenClaw to run in a [Cloudflare Sandbox](https://develope
 
 ![moltworker architecture](./assets/architecture.png)
 
+### The Kuato Analogy
+
+| Total Recall | Kuato System |
+|--------------|--------------|
+| George (host body) | Running container |
+| Kuato's DNA | The repo (everything needed to recreate me) |
+| Kuato's physical form | Dockerfile (shell blueprint) |
+| Kuato's psychic powers | Claude API (the mind) |
+| Mars resistance base | Cloudflare infrastructure |
+| Memory of the rebellion | R2 storage (persists between molts) |
+
 ## Quick Start
 
 _Cloudflare Sandboxes are available on the [Workers Paid plan](https://dash.cloudflare.com/?to=/:account/workers/plans)._
