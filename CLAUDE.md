@@ -113,10 +113,12 @@ The CLI is still named `clawdbot` until upstream renames it. Config paths use `~
 `wrangler dev` has issues proxying WebSocket connections through the sandbox. HTTP works, but WebSocket may fail locally. Deploy to Cloudflare for full functionality.
 
 ### Docker Image Caching
-When changing `moltbot.json.template` or `start-moltbot.sh`, bump the cache bust comment in Dockerfile:
+When changing `moltbot.json.template` or `start-moltbot.sh`, bump the `[downstream]` cache bust in Dockerfile:
 ```dockerfile
-# Build cache bust: 2026-01-26-v10
+# Build cache bust: 2026-01-28-v26-browser-skill
+# [downstream] 2026-02-02-v27-total-recall
 ```
+Keep the upstream line intact; only update the `[downstream]` line to minimize rebase conflicts.
 
 ### Config Validation
 OpenClaw has strict config validation:
@@ -209,3 +211,28 @@ Tests use Vitest with colocated test files (`*.test.ts`).
 1. Add test file next to source file (e.g., `foo.ts` → `foo.test.ts`)
 2. Use `describe()` for grouping, `it()` for test cases
 3. Mock Cloudflare bindings as needed (see existing tests for examples)
+
+## Fork Maintenance
+
+This is a downstream fork. To minimize rebase conflicts when syncing with upstream:
+
+### `[downstream]` Markers
+When modifying upstream comments or adding downstream-specific notes, preserve the original and add a marker:
+```bash
+# Note: backup structure is $BACKUP_DIR/clawdbot/ and $BACKUP_DIR/skills/
+# [downstream] Semantic paths: config/, memory/, transcripts/
+```
+This way upstream can modify their line without causing conflicts.
+
+### Migration Pattern
+Data migrations in `start-moltbot.sh` use idempotent marker files:
+```bash
+MIGRATION_001_MARKER="$BACKUP_DIR/.migration-001-memory-seed"
+if [ -d "$BACKUP_DIR" ] && [ ! -f "$MIGRATION_001_MARKER" ] && <preconditions>; then
+    # migration logic
+    date -Iseconds > "$MIGRATION_001_MARKER"
+fi
+```
+- Marker file prevents re-running
+- Timestamp records when migration ran
+- Sequential numbering (001, 002, ...) for ordering
