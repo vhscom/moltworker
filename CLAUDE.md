@@ -63,6 +63,30 @@ OpenClaw Gateway (port 18789)
 - **Admin UI**: Manual "Backup Now" button triggers immediate sync
 - Mount point: `/data/moltbot` inside container
 
+R2 backup structure (semantic paths to survive upstream renames):
+```
+R2/
+├── config/       # /root/.clawdbot/ (settings, session metadata)
+├── transcripts/  # Session transcripts (append-only, agents/*/sessions/*.jsonl)
+└── memory/       # Memory files only from /root/clawd/ (not entire workspace)
+    ├── MEMORY.md, USER.md, SOUL.md, IDENTITY.md, TOOLS.md
+    ├── memory/*.md (daily notes)
+    └── skills/   # Custom skills (mirrors local with --delete)
+```
+
+**Memory-Only Persistence:** Only specific memory files survive the molt—the rest of `/root/clawd/` (project files, build artifacts, cloned repos) is ephemeral. This reduces R2 costs and Class A operations.
+
+**Transcript Isolation** (see [ADR-001](docs/adr/001-transcript-backup-architecture.md)):
+- Transcripts sync separately with `--relative` to preserve `agents/{id}/sessions/` paths
+- No `--delete` flag - append-only semantics protect conversation history
+- Enables single R2 lifecycle rule to transition `transcripts/` prefix to Infrequent Access
+- GDPR interventions target `transcripts/agents/{agentId}/` for erasure/portability
+
+**Workspace & Profiles:**
+- Workspace is explicitly set to `/root/clawd/` (outside config dir)
+- `OPENCLAW_PROFILE` creates ephemeral workspaces at `~/.clawdbot/workspace-<profile>/`
+- Ephemeral profile workspaces are **not persisted** and won't survive container restart
+- Only memory files from the default workspace at `/root/clawd/` are backed up to R2
 **4. Environment Variable Mapping**
 - Worker env vars → Container env vars via `buildEnvVars()` in `src/gateway/env.ts`
 - Example: `DEV_MODE` → `CLAWDBOT_DEV_MODE`, `MOLTBOT_GATEWAY_TOKEN` → `CLAWDBOT_GATEWAY_TOKEN`
@@ -164,6 +188,14 @@ src/
 | `start-moltbot.sh` | Startup script: restore from R2, configure from env vars, start gateway |
 | `moltbot.json.template` | Default OpenClaw config template |
 | `skills/` | Custom skills copied into container at `/root/clawd/skills/` |
+
+## Architecture Decision Records
+
+ADRs document significant architectural decisions and their rationale.
+
+| ADR | Title |
+|-----|-------|
+| [001](docs/adr/001-transcript-backup-architecture.md) | Transcript Backup Architecture (GDPR, IA storage) |
 
 ## Local Development
 
