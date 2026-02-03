@@ -76,31 +76,32 @@ if [ "$POLICY_SUCCESS" != "true" ]; then
 fi
 echo "Created Service Auth policy" >&2
 
+# [downstream] Disabled - require explicit approval for all access
 # Create Allow policy for Cloudflare employees
-echo "Creating Cloudflare employees policy..." >&2
-POLICY_RESPONSE=$(curl -s -X POST \
-    "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/access/apps/$APP_ID/policies" \
-    -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-    -H "Content-Type: application/json" \
-    --data '{
-        "name": "Cloudflare Employees",
-        "decision": "allow",
-        "precedence": 2,
-        "include": [
-            {
-                "email_domain": {
-                    "domain": "cloudflare.com"
-                }
-            }
-        ]
-    }')
-
-POLICY_SUCCESS=$(echo "$POLICY_RESPONSE" | jq -r '.success')
-if [ "$POLICY_SUCCESS" != "true" ]; then
-    echo "Warning: Failed to create Cloudflare employees policy (non-fatal):" >&2
-    echo "$POLICY_RESPONSE" | jq >&2
-fi
-echo "Created Cloudflare employees policy" >&2
+# echo "Creating Cloudflare employees policy..." >&2
+# POLICY_RESPONSE=$(curl -s -X POST \
+#     "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/access/apps/$APP_ID/policies" \
+#     -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+#     -H "Content-Type: application/json" \
+#     --data '{
+#         "name": "Cloudflare Employees",
+#         "decision": "allow",
+#         "precedence": 2,
+#         "include": [
+#             {
+#                 "email_domain": {
+#                     "domain": "cloudflare.com"
+#                 }
+#             }
+#         ]
+#     }')
+#
+# POLICY_SUCCESS=$(echo "$POLICY_RESPONSE" | jq -r '.success')
+# if [ "$POLICY_SUCCESS" != "true" ]; then
+#     echo "Warning: Failed to create Cloudflare employees policy (non-fatal):" >&2
+#     echo "$POLICY_RESPONSE" | jq >&2
+# fi
+# echo "Created Cloudflare employees policy" >&2
 
 # Output the app ID and AUD for use by other scripts
 echo "$APP_ID"

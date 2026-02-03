@@ -41,7 +41,7 @@ These tests run against actual Cloudflare infrastructure—the same environment 
 │                                                                         │
 │   Protected by Cloudflare Access:                                       │
 │   - Service token (for automated tests)                                 │
-│   - @cloudflare.com emails (for manual debugging)                       │
+│   [downstream: @cloudflare.com email access disabled]                   │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
