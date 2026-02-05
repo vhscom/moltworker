@@ -196,6 +196,7 @@ ADRs document significant architectural decisions and their rationale.
 | ADR | Title |
 |-----|-------|
 | [001](docs/adr/001-transcript-backup-architecture.md) | Transcript Backup Architecture (GDPR, IA storage) |
+| [002](docs/adr/002-explicit-access-approval.md) | Explicit Access Approval (security hardening) |
 
 ## Local Development
 
