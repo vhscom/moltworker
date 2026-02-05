@@ -48,6 +48,20 @@ This project packages OpenClaw to run in a [Cloudflare Sandbox](https://develope
 | Mars resistance base | Cloudflare infrastructure |
 | Memory of the rebellion | R2 storage (persists between molts) |
 
+**How Memory Survives the Molt:**
+
+```
+R2/
+├── config/       # Settings, credentials
+├── transcripts/  # Conversation history (append-only)
+└── memory/       # Memory files only (not entire workspace)
+    ├── MEMORY.md, USER.md, SOUL.md, IDENTITY.md, TOOLS.md
+    ├── memory/*.md (daily notes)
+    └── skills/   # Custom skills
+```
+
+Every 5 minutes, the Worker syncs memory files to R2. On container restart, memories are restored before the gateway starts. The rest of the workspace (project files, build artifacts, cloned repos) is ephemeral—only what matters survives the molt.
+
 ## Quick Start
 
 _Cloudflare Sandboxes are available on the [Workers Paid plan](https://dash.cloudflare.com/?to=/:account/workers/plans)._
