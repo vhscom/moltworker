@@ -101,6 +101,8 @@ describe("syncToR2", () => {
 			expect(result.error).toBe("Sync failed");
 		});
 
+		// [downstream] Also backs up memory files and transcripts (not entire workspace)
+		// See ADR-001 for transcript backup architecture design rationale
 		it("verifies rsync command is called with correct flags", async () => {
 			const { sandbox, startProcessMock } = createMockSandbox();
 			const timestamp = "2026-01-27T12:00:00+00:00";
@@ -122,8 +124,30 @@ describe("syncToR2", () => {
 			expect(rsyncCall).toContain("rsync");
 			expect(rsyncCall).toContain("--no-times");
 			expect(rsyncCall).toContain("--delete");
+			// Config sync (excludes transcripts which are backed up separately)
 			expect(rsyncCall).toContain("/root/.clawdbot/");
-			expect(rsyncCall).toContain("/data/moltbot/");
+			expect(rsyncCall).toContain("/data/moltbot/config/");
+			expect(rsyncCall).toContain("--exclude='agents/*/sessions/*.jsonl'");
+			// Transcripts sync (separate backup, preserves path structure, handles empty glob)
+			expect(rsyncCall).toContain("/data/moltbot/transcripts/");
+			expect(rsyncCall).toContain("--relative");
+			expect(rsyncCall).toContain("|| true");
+			// Memory files sync (only specific files, not entire workspace)
+			expect(rsyncCall).toContain("/root/clawd/");
+			expect(rsyncCall).toContain("/data/moltbot/memory/");
+			// Memory file includes
+			expect(rsyncCall).toContain("--include='MEMORY.md'");
+			expect(rsyncCall).toContain("--include='USER.md'");
+			expect(rsyncCall).toContain("--include='SOUL.md'");
+			expect(rsyncCall).toContain("--include='IDENTITY.md'");
+			expect(rsyncCall).toContain("--include='TOOLS.md'");
+			expect(rsyncCall).toContain("--include='memory/'");
+			expect(rsyncCall).toContain("--include='memory/*.md'");
+			// Exclude everything else (only memory files are backed up)
+			expect(rsyncCall).toContain("--exclude='*'");
+			// Skills sync with --delete (mirrors local state)
+			expect(rsyncCall).toContain("/root/clawd/skills/");
+			expect(rsyncCall).toContain("/data/moltbot/memory/skills/");
 		});
 	});
 });

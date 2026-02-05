@@ -22,6 +22,16 @@ TEMPLATE_DIR="/root/.clawdbot-templates"
 TEMPLATE_FILE="$TEMPLATE_DIR/moltbot.json.template"
 BACKUP_DIR="/data/moltbot"
 
+# Files and directories that survive the molt (trailing slash = directory)
+WORKSPACE_ITEMS=(
+    SOUL.md
+    USER.md
+    IDENTITY.md
+    TOOLS.md
+    memory/
+    skills/
+)
+
 echo "Config directory: $CONFIG_DIR"
 echo "Backup directory: $BACKUP_DIR"
 
@@ -34,6 +44,7 @@ mkdir -p "$CONFIG_DIR"
 # Check if R2 backup exists by looking for clawdbot.json
 # The BACKUP_DIR may exist but be empty if R2 was just mounted
 # Note: backup structure is $BACKUP_DIR/clawdbot/ and $BACKUP_DIR/skills/
+# [downstream] Semantic paths: config/, memory/, transcripts/
 
 # Helper function to check if R2 backup is newer than local
 should_restore_from_r2() {
@@ -72,21 +83,26 @@ should_restore_from_r2() {
     fi
 }
 
-if [ -f "$BACKUP_DIR/clawdbot/clawdbot.json" ]; then
+if [ -f "$BACKUP_DIR/config/clawdbot.json" ]; then
     if should_restore_from_r2; then
-        echo "Restoring from R2 backup at $BACKUP_DIR/clawdbot..."
-        cp -a "$BACKUP_DIR/clawdbot/." "$CONFIG_DIR/"
+        echo "Restoring config from R2 backup at $BACKUP_DIR/config..."
+        cp -a "$BACKUP_DIR/config/." "$CONFIG_DIR/"
         # Copy the sync timestamp to local so we know what version we have
-        cp -f "$BACKUP_DIR/.last-sync" "$CONFIG_DIR/.last-sync" 2>/dev/null || true
         echo "Restored config from R2 backup"
+    fi
+elif [ -f "$BACKUP_DIR/clawdbot/clawdbot.json" ]; then
+    # Legacy backup format (clawdbot/ structure before semantic rename)
+    if should_restore_from_r2; then
+        echo "Restoring config from legacy R2 backup at $BACKUP_DIR/clawdbot..."
+        cp -a "$BACKUP_DIR/clawdbot/." "$CONFIG_DIR/"
+        echo "Restored config from legacy R2 backup (clawdbot/)"
     fi
 elif [ -f "$BACKUP_DIR/clawdbot.json" ]; then
     # Legacy backup format (flat structure)
     if should_restore_from_r2; then
-        echo "Restoring from legacy R2 backup at $BACKUP_DIR..."
+        echo "Restoring config from legacy R2 backup at $BACKUP_DIR..."
         cp -a "$BACKUP_DIR/." "$CONFIG_DIR/"
-        cp -f "$BACKUP_DIR/.last-sync" "$CONFIG_DIR/.last-sync" 2>/dev/null || true
-        echo "Restored config from legacy R2 backup"
+        echo "Restored config from legacy R2 backup (flat)"
     fi
 elif [ -d "$BACKUP_DIR" ]; then
     echo "R2 mounted at $BACKUP_DIR but no backup data found yet"
@@ -94,15 +110,48 @@ else
     echo "R2 not mounted, starting fresh"
 fi
 
-# Restore skills from R2 backup if available (only if R2 is newer)
-SKILLS_DIR="/root/clawd/skills"
-if [ -d "$BACKUP_DIR/skills" ] && [ "$(ls -A $BACKUP_DIR/skills 2>/dev/null)" ]; then
+# Restore transcripts from R2 backup if available (only if R2 is newer)
+# Transcripts are stored at transcripts/agents/*/sessions/*.jsonl, restore to config dir
+if [ -d "$BACKUP_DIR/transcripts/agents" ]; then
     if should_restore_from_r2; then
-        echo "Restoring skills from $BACKUP_DIR/skills..."
-        mkdir -p "$SKILLS_DIR"
-        cp -a "$BACKUP_DIR/skills/." "$SKILLS_DIR/"
-        echo "Restored skills from R2 backup"
+        echo "Restoring transcripts from $BACKUP_DIR/transcripts..."
+        cp -a "$BACKUP_DIR/transcripts/agents/." "$CONFIG_DIR/agents/"
+        echo "Restored transcripts from R2 backup"
     fi
+fi
+
+# Restore memory files from R2 backup if available (only if R2 is newer)
+# [downstream] Only memory files persist, not entire workspace
+# Memory files: MEMORY.md, USER.md, SOUL.md, IDENTITY.md, TOOLS.md, memory/*.md, skills/
+WORKSPACE_DIR="/root/clawd"
+if [ -d "$BACKUP_DIR/memory" ] && [ "$(ls -A $BACKUP_DIR/memory 2>/dev/null)" ]; then
+    if should_restore_from_r2; then
+        echo "Restoring memory files from $BACKUP_DIR/memory..."
+        mkdir -p "$WORKSPACE_DIR"
+        mkdir -p "$WORKSPACE_DIR/memory"
+        mkdir -p "$WORKSPACE_DIR/skills"
+        # Copy top-level memory files (MEMORY.md, USER.md, etc.)
+        for f in MEMORY.md USER.md SOUL.md IDENTITY.md TOOLS.md; do
+            if [ -f "$BACKUP_DIR/memory/$f" ]; then
+                cp -a "$BACKUP_DIR/memory/$f" "$WORKSPACE_DIR/$f"
+            fi
+        done
+        # Copy memory subdirectory if exists
+        if [ -d "$BACKUP_DIR/memory/memory" ]; then
+            cp -a "$BACKUP_DIR/memory/memory/." "$WORKSPACE_DIR/memory/"
+        fi
+        # Copy skills if exists
+        if [ -d "$BACKUP_DIR/memory/skills" ]; then
+            cp -a "$BACKUP_DIR/memory/skills/." "$WORKSPACE_DIR/skills/"
+        fi
+        echo "Restored memory files from R2 backup"
+    fi
+fi
+
+# Copy sync timestamp AFTER all restores complete
+# This ensures all restore blocks see the same (missing or old) local timestamp
+if [ -f "$BACKUP_DIR/.last-sync" ]; then
+    cp -f "$BACKUP_DIR/.last-sync" "$CONFIG_DIR/.last-sync" 2>/dev/null || true
 fi
 
 # If config file still doesn't exist, create from template
@@ -128,6 +177,63 @@ EOFCONFIG
     fi
 else
     echo "Using existing config"
+fi
+
+# ============================================================
+# MIGRATIONS
+# ============================================================
+# Run one-time migrations to preserve data integrity.
+# Markers are written regardless of outcome to prevent re-runs.
+
+MIGRATION_001_MARKER="$BACKUP_DIR/.migration-001-memory-seed"
+
+# Migration 001: seed R2/memory from local workspace (for upstream adopters)
+# Ensures existing memory files are backed up before first sync
+if [ -f "$MIGRATION_001_MARKER" ]; then
+    echo "Migration 001 already applied: $(cat $MIGRATION_001_MARKER)"
+elif [ -d "$BACKUP_DIR" ]; then
+    # Check if R2/memory has real content
+    R2_HAS_DATA=false
+    for item in "${WORKSPACE_ITEMS[@]}"; do
+        item="${item%/}"
+        if [ -f "$BACKUP_DIR/memory/$item" ] || [ -d "$BACKUP_DIR/memory/$item" ]; then
+            R2_HAS_DATA=true
+            break
+        fi
+    done
+
+    # Check if local has data worth seeding
+    LOCAL_HAS_DATA=false
+    for item in "${WORKSPACE_ITEMS[@]}"; do
+        item="${item%/}"
+        if [ -f "$WORKSPACE_DIR/$item" ] || [ -d "$WORKSPACE_DIR/$item" ]; then
+            LOCAL_HAS_DATA=true
+            break
+        fi
+    done
+
+    # Seed R2 from local if needed
+    if [ "$R2_HAS_DATA" = false ] && [ "$LOCAL_HAS_DATA" = true ]; then
+        echo "Migration 001: seeding R2/memory from local..."
+        mkdir -p "$BACKUP_DIR/memory"
+
+        for item in "${WORKSPACE_ITEMS[@]}"; do
+            if [[ "$item" == */ ]]; then
+                dir="${item%/}"
+                [ -d "$WORKSPACE_DIR/$dir" ] && mkdir -p "$BACKUP_DIR/memory/$dir" \
+                    && cp -a "$WORKSPACE_DIR/$dir/." "$BACKUP_DIR/memory/$dir/"
+            else
+                [ -f "$WORKSPACE_DIR/$item" ] && cp -a "$WORKSPACE_DIR/$item" "$BACKUP_DIR/memory/$item"
+            fi
+        done
+
+        echo "Migration 001 complete"
+    else
+        echo "Migration 001: skipped (R2 has data: $R2_HAS_DATA, local has data: $LOCAL_HAS_DATA)"
+    fi
+
+    # Always write marker
+    date -Iseconds > "$MIGRATION_001_MARKER"
 fi
 
 # ============================================================

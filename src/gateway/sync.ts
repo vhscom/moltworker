@@ -13,11 +13,65 @@ export interface SyncResult {
 
 /**
  * Sync moltbot config from container to R2 for persistence.
+ * Patterns to exclude from config backup (/root/.clawdbot/ -> R2/config/)
+ * Note: Session transcripts (*.jsonl) are backed up separately to R2/transcripts/
+ */
+const CONFIG_EXCLUSIONS = [
+	// Ephemeral workspaces - not persisted, won't survive restart
+	// (we use explicit workspace at /root/clawd/ instead)
+	"workspace", // sandbox mode without profile
+	"workspace-*", // sandbox mode with profile
+	// Temp files
+	"*.lock",
+	"*.log",
+	"*.tmp",
+];
+
+/** Convert exclusion list to rsync --exclude flags */
+function toRsyncExcludes(patterns: string[]): string {
+	return patterns.map((p) => `--exclude='${p}'`).join(" ");
+}
+
+/**
+ * Memory files that survive the molt.
+ * These are the only files backed up from the workspace to R2.
+ * Everything else in /root/clawd/ is ephemeral and will not persist.
+ */
+const MEMORY_INCLUDES = [
+	"MEMORY.md",
+	"USER.md",
+	"SOUL.md",
+	"IDENTITY.md",
+	"TOOLS.md",
+	"memory/",
+	"memory/*.md",
+];
+
+/** Convert include list to rsync --include flags */
+function toRsyncIncludes(patterns: string[]): string {
+	return patterns.map((p) => `--include='${p}'`).join(" ");
+}
+
+/**
+ * Sync moltbot config from container to R2 for persistence.
+ *
+ * Backup structure (semantic names to survive upstream renames):
+ * - R2/config/ - Config from /root/.clawdbot/ (excluding transcripts)
+ * - R2/transcripts/agents/[name]/sessions/*.jsonl - Session transcripts (path preserved)
+ * - R2/memory/ - Memory files only from /root/clawd/ (not entire workspace)
+ *
+ * Memory files that survive the molt:
+ * - Core: MEMORY.md, USER.md, SOUL.md, IDENTITY.md, TOOLS.md
+ * - Daily notes: memory/*.md
+ * - Custom skills: skills/ (synced with --delete to mirror local state)
+ *
+ * The rest of /root/clawd/ is ephemeral (project files, build artifacts, etc.)
+ * and will not persist across container restarts.
  *
  * This function:
  * 1. Mounts R2 if not already mounted
  * 2. Verifies source has critical files (prevents overwriting good backup with empty data)
- * 3. Runs rsync to copy config to R2
+ * 3. Runs rsync to copy config and memory files to R2
  * 4. Writes a timestamp file for tracking
  *
  * @param sandbox - The sandbox instance
@@ -68,8 +122,24 @@ export async function syncToR2(
 	}
 
 	// Run rsync to backup config to R2
+	// [downstream] Also backs up memory files and transcripts (not entire workspace)
 	// Note: Use --no-times because s3fs doesn't support setting timestamps
-	const syncCmd = `rsync -r --no-times --delete --exclude='*.lock' --exclude='*.log' --exclude='*.tmp' /root/.clawdbot/ ${R2_MOUNT_PATH}/clawdbot/ && rsync -r --no-times --delete /root/clawd/skills/ ${R2_MOUNT_PATH}/skills/ && date -Iseconds > ${R2_MOUNT_PATH}/.last-sync`;
+	const configExcludes = toRsyncExcludes(CONFIG_EXCLUSIONS);
+	const memoryIncludes = toRsyncIncludes(MEMORY_INCLUDES);
+	const syncCmd = [
+		// Config: full sync with delete (mutable state)
+		`rsync -r --no-times --delete ${configExcludes} --exclude='agents/*/sessions/*.jsonl' /root/.clawdbot/ ${R2_MOUNT_PATH}/config/`,
+		// Transcripts: append-only, no delete, preserve path structure (--relative with ./ marker)
+		// Note: || true handles empty glob (no sessions yet) gracefully
+		`rsync -r --no-times --relative /root/.clawdbot/./agents/*/sessions/*.jsonl ${R2_MOUNT_PATH}/transcripts/ 2>/dev/null || true`,
+		// Memory files: no --delete (preserves history, orphans acceptable)
+		// Only syncs specific memory files, not entire workspace
+		`rsync -r --no-times ${memoryIncludes} --exclude='*' /root/clawd/ ${R2_MOUNT_PATH}/memory/`,
+		// Skills: with --delete (mirrors local state exactly)
+		`rsync -r --no-times --delete /root/clawd/skills/ ${R2_MOUNT_PATH}/memory/skills/`,
+		// Timestamp
+		`date -Iseconds > ${R2_MOUNT_PATH}/.last-sync`,
+	].join(" && ");
 
 	try {
 		const proc = await sandbox.startProcess(syncCmd);
@@ -78,6 +148,7 @@ export async function syncToR2(
 		// Check for success by reading the timestamp file
 		// (process status may not update reliably in sandbox API)
 		// Note: backup structure is ${R2_MOUNT_PATH}/clawdbot/ and ${R2_MOUNT_PATH}/skills/
+		// [downstream] Semantic paths: config/, memory/, transcripts/
 		const timestampProc = await sandbox.startProcess(
 			`cat ${R2_MOUNT_PATH}/.last-sync`,
 		);
